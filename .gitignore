@@ -1,0 +1,56 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors/IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Logs
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node/TypeScript (server)
+server/node_modules/
+server/dist/
+server/coverage/
+server/.turbo/
+server/.cache/
+server/.env
+server/.env.*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Generic build artifacts
+dist/
+build/
+coverage/
+.tmp/
+.cache/
+
+# Java/Maven (server_spring)
+server_spring/target/
+server_spring/.classpath
+server_spring/.project
+server_spring/.settings/
+
+# Runtime
+*.pid
+
+# Swap/backup
+*.swp
+*~
+

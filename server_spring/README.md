@@ -7,7 +7,7 @@ Ein alternatives Servergerüst mit Spring Boot (WebSocket), kompatibel zum Proto
 
 ## Starten
 
-Voraussetzung: JDK 17+ und Maven.
+Voraussetzung: JDK 21+ und Maven.
 
 - Entwicklung:
   - `cd server_spring`
@@ -30,7 +30,7 @@ Hinweise:
 
 ### Dockerfile (Multi-Stage)
 - Datei: `server_spring/Dockerfile`
-- Basis: `maven:3.9.6-eclipse-temurin-17` (Build) → `eclipse-temurin:17-jre` (Run)
+- Basis: `maven:3.9.6-eclipse-temurin-21` (Build) → `eclipse-temurin:21-jre` (Run)
 
 ### Image bauen
 ```

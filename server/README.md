@@ -1,10 +1,10 @@
 # chaa-i Routing Server (Node.js)
 
-Ein minimaler Node.js/TypeScript‑WebSocket‑Server für P2P‑ und Gruppen‑Routing.
+Minimaler Node.js/TypeScript-WebSocket-Server fuer P2P- und Gruppen-Routing.
 
 ## Quick Start
 
-1) Abhängigkeiten installieren
+1) Abhaengigkeiten installieren
 
 ```
 cd server
@@ -25,27 +25,34 @@ npm run build
 npm start
 ```
 
-Optional: Port ändern (PowerShell)
+Optionaler Portwechsel (PowerShell):
+
 ```
 $env:PORT=9090; npm run dev
 ```
 
-## Gehostete Web‑App
+## Gehostete Web-App
 - Index: `http://localhost:8080/app`
-- Verschlüsselter Client: `http://localhost:8080/app/secure`
+- Verschluesselter Client: `http://localhost:8080/app/secure`
 - Einfacher Client: `http://localhost:8080/app/simple`
+- Svelte Client: `http://localhost:8080/app/svelte`
 
-Die HTML‑Dateien liegen in `client_secure/` und `client_simple/` und werden direkt vom Server ausgeliefert.
+Statische Dateien:
+- `client_secure/` und `client_simple/` werden direkt gelesen
+- Svelte-Client wird aus `client_svelte/dist/` oder `server/public/app/svelte/` bedient
 
-## Protokoll‑Erwartung
+## Svelte Sync-Skript
+- `client_svelte/scripts/sync-to-node.ps1` bzw. `sync-to-node.sh` kopieren den Build nach `server/public/app/svelte/`
+
+## Protokoll-Erwartung
 - `type: 'join'` mit `{ userId: string, rooms?: string[] }`
 - `type: 'msg'` mit `{ to?: string, room?: string, ...cipher-metadata }`
 - `type: 'leave'` mit `{ rooms?: string[] }`
 
 Der Server validiert minimal und routet nur. Payload bleibt Ciphertext (siehe `docs/PROTOKOLL.md`).
 
-## Status schnell prüfen
-- Datei `servers-status.http` im Repo öffnen und Requests senden.
+## Status schnell pruefen
+- Datei `servers-status.http` oeffnen und Requests senden.
 
 ## Skalierung
 - Hinter einen Load Balancer mit Sticky Sessions stellen oder Redis Pub/Sub integrieren.

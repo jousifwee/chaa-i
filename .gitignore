@@ -30,6 +30,8 @@ server/.turbo/
 server/.cache/
 server/.env
 server/.env.*
+server/public/app/svelte/
+server_spring/src/main/resources/static/app/svelte/
 
 # TypeScript build info
 *.tsbuildinfo
@@ -53,4 +55,3 @@ server_spring/.settings/
 # Swap/backup
 *.swp
 *~
-

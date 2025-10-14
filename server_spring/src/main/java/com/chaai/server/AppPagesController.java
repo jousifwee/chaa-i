@@ -20,5 +20,10 @@ public class AppPagesController {
     public String appSimple() {
         return "forward:/app/simple/index.html";
     }
+
+    @GetMapping({"/app/svelte", "/app/svelte/"})
+    public String appSvelte() {
+        return "forward:/app/svelte/index.html";
+    }
 }
 

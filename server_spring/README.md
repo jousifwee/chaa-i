@@ -1,6 +1,6 @@
 # chaa-i Routing Server (Spring Boot)
 
-Ein alternatives Servergerüst mit Spring Boot (WebSocket), kompatibel zum Protokoll in `docs/PROTOKOLL.md`.
+Alternatives Servergerüst mit Spring Boot (WebSocket), kompatibel zum Protokoll in `docs/PROTOKOLL.md`.
 
 - HTTP Health: `GET /` → Text
 - WebSocket Endpoint: `ws://localhost:8081/ws`
@@ -17,18 +17,25 @@ Voraussetzung: JDK 21+ und Maven.
   - `mvn clean package`
   - `java -jar target/chaa-i-server-spring-0.1.0.jar`
 
-## Routing-Logik
+## Gehostete Web‑App
+- Index: `http://localhost:8081/app/`
+- Verschlüsselter Client: `http://localhost:8081/app/secure/`
+- Einfacher Client: `http://localhost:8081/app/simple/`
+
+Die HTML‑Dateien liegen in `server_spring/src/main/resources/static/app/` und werden statisch ausgeliefert.
+
+## Routing‑Logik
 - `type: "join"` mit `{ userId: string, rooms?: string[] }` registriert Nutzer und Rooms
-- `type: "msg"` mit `{ to?: string, room?: string, ... }` leitet Ciphertext P2P oder an alle Room-Mitglieder weiter (Server bleibt blind)
+- `type: "msg"` mit `{ to?: string, room?: string, ... }` leitet Ciphertext P2P oder an alle Room‑Mitglieder weiter (Server bleibt blind)
 - `type: "leave"` entfernt Nutzer aus angegebenen Rooms
 
 Hinweise:
-- In-Memory Maps (`clients`, `rooms`), für Skalierung Redis Pub/Sub o.ä. ergänzen.
+- In‑Memory Maps (`clients`, `rooms`), für Skalierung Redis Pub/Sub o. ä. ergänzen.
 - `setAllowedOrigins("*")` ist für MVP offen; in Produktion Herkunft einschränken.
 
 ## Docker
 
-### Dockerfile (Multi-Stage)
+### Dockerfile (Multi‑Stage)
 - Datei: `server_spring/Dockerfile`
 - Basis: `maven:3.9.6-eclipse-temurin-21` (Build) → `eclipse-temurin:21-jre` (Run)
 
@@ -46,8 +53,9 @@ docker run --rm -e JAVA_OPTS="-Dserver.port=9090" -p 9090:9090 chaai/chaa-i-serv
 ```
 
 ### Alternative: Buildpacks (ohne Dockerfile)
-Das Spring Boot Maven Plugin kann ein OCI-Image via Buildpacks erstellen:
+Das Spring Boot Maven Plugin kann ein OCI‑Image via Buildpacks erstellen:
 ```
 mvn -DskipTests spring-boot:build-image -Dspring-boot.build-image.imageName=chaai/chaa-i-server-spring:0.1.0
 ```
 Anschließend wie oben mit `docker run` starten.
+

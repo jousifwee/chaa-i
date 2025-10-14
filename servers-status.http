@@ -1,0 +1,10 @@
+# Node server status (default port 8080)
+GET http://localhost:8080/
+Accept: text/plain
+
+###
+
+# Spring Boot server status (configured port 8081)
+GET http://localhost:8081/
+Accept: text/plain
+

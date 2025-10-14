@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>chaa-i – Einfacher WebSocket‑Client</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; line-height: 1.35; }
+      fieldset { border: 1px solid #8884; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+      legend { padding: 0 6px; }
+      label { display: block; margin: 6px 0 4px; font-size: .95rem; }
+      input[type="text"], textarea { width: 100%; padding: 8px; border: 1px solid #8886; border-radius: 6px; font-family: inherit; }
+      textarea { min-height: 72px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      button { padding: 8px 12px; border-radius: 6px; border: 1px solid #6666; background: #eee; cursor: pointer; }
+      button[disabled] { opacity: .6; cursor: not-allowed; }
+      #log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; background: #00000008; padding: 10px; border-radius: 8px; max-height: 45vh; overflow: auto; }
+      .hint { color: #666; font-size: .9rem; }
+      .ok { color: #0a0; }
+      .err { color: #b00; }
+    </style>
+  </head>
+  <body>
+    <h1>chaa-i – Einfacher WebSocket‑Client</h1>
+    <p class="hint">Minimaler Demo‑Client ohne Verschl&uuml;sselung (nur Klartext zum Testen). Server leitet Nachrichten weiter.</p>
+
+    <fieldset>
+      <legend>Verbindung</legend>
+      <label for="url">WebSocket‑URL</label>
+      <input id="url" type="text" value="ws://localhost:8080/ws" />
+
+      <div class="row">
+        <div>
+          <label for="userId">Eigene User‑ID</label>
+          <input id="userId" type="text" />
+        </div>
+        <div>
+          <label for="rooms">Rooms (Komma‑getrennt, optional)</label>
+          <input id="rooms" type="text" placeholder="z.B. general,dev" />
+        </div>
+      </div>
+
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="connectBtn">Verbinden</button>
+        <button id="disconnectBtn" disabled>Trennen</button>
+        <button id="leaveRoomsBtn" disabled>Rooms verlassen</button>
+      </div>
+      <div id="status" class="hint" style="margin-top:6px;">Nicht verbunden</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Senden</legend>
+      <div class="row">
+        <div>
+          <label for="to">An User (optional)</label>
+          <input id="to" type="text" placeholder="userId" />
+        </div>
+        <div>
+          <label for="room">An Room (optional)</label>
+          <input id="room" type="text" placeholder="room" />
+        </div>
+      </div>
+      <label for="text">Nachricht (Klartext)</label>
+      <textarea id="text" placeholder="Nachricht..."></textarea>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="sendBtn" disabled>Senden</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Log</legend>
+      <div id="log"></div>
+    </fieldset>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const url = $("url");
+      const userId = $("userId");
+      const rooms = $("rooms");
+      const connectBtn = $("connectBtn");
+      const disconnectBtn = $("disconnectBtn");
+      const leaveRoomsBtn = $("leaveRoomsBtn");
+      const to = $("to");
+      const room = $("room");
+      const text = $("text");
+      const sendBtn = $("sendBtn");
+      const status = $("status");
+      const log = $("log");
+
+      // Restore last settings
+      try {
+        const saved = JSON.parse(localStorage.getItem('chaa_i_simple_client') || '{}');
+        if (saved.url) url.value = saved.url;
+        if (saved.userId) userId.value = saved.userId;
+        if (saved.rooms) rooms.value = saved.rooms;
+      } catch {}
+
+      // Default userId
+      if (!userId.value) {
+        userId.value = 'user-' + Math.random().toString(36).slice(2, 8);
+      }
+
+      let ws = null;
+
+      function savePrefs() {
+        localStorage.setItem('chaa_i_simple_client', JSON.stringify({
+          url: url.value.trim(),
+          userId: userId.value.trim(),
+          rooms: rooms.value.trim()
+        }));
+      }
+
+      function setConnected(connected) {
+        connectBtn.disabled = connected;
+        disconnectBtn.disabled = !connected;
+        leaveRoomsBtn.disabled = !connected;
+        sendBtn.disabled = !connected;
+        status.textContent = connected ? 'Verbunden' : 'Nicht verbunden';
+        status.className = connected ? 'hint ok' : 'hint';
+      }
+
+      function writeLog(kind, obj) {
+        const time = new Date().toLocaleTimeString();
+        const line = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+        log.textContent += `[${time}] ${kind}: ${line}\n`;
+        log.scrollTop = log.scrollHeight;
+      }
+
+      connectBtn.addEventListener('click', () => {
+        const u = url.value.trim();
+        const me = userId.value.trim();
+        const rs = rooms.value.trim();
+        if (!u || !me) { alert('URL und User‑ID sind erforderlich'); return; }
+
+        savePrefs();
+        try { ws?.close(); } catch {}
+        ws = new WebSocket(u);
+
+        ws.addEventListener('open', () => {
+          setConnected(true);
+          writeLog('OPEN', u);
+          // Send join message
+          const joinMsg = { type: 'join', userId: me };
+          const list = rs ? rs.split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (list.length) joinMsg.rooms = list;
+          ws.send(JSON.stringify(joinMsg));
+          writeLog('SEND', joinMsg);
+        });
+
+        ws.addEventListener('message', (ev) => {
+          let data = ev.data;
+          try { data = JSON.parse(ev.data); } catch {}
+          writeLog('RECV', data);
+        });
+
+        ws.addEventListener('close', () => {
+          writeLog('CLOSE', 'verbindung geschlossen');
+          setConnected(false);
+        });
+
+        ws.addEventListener('error', (e) => {
+          writeLog('ERROR', 'WebSocket Fehler');
+          status.className = 'hint err';
+        });
+      });
+
+      disconnectBtn.addEventListener('click', () => {
+        try { ws?.close(); } catch {}
+      });
+
+      leaveRoomsBtn.addEventListener('click', () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const rs = rooms.value.trim();
+        const list = rs ? rs.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const leaveMsg = { type: 'leave', rooms: list };
+        ws.send(JSON.stringify(leaveMsg));
+        writeLog('SEND', leaveMsg);
+      });
+
+      sendBtn.addEventListener('click', () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const payload = {
+          type: 'msg',
+          text: text.value,
+          ts: Date.now()
+        };
+        const toVal = to.value.trim();
+        const roomVal = room.value.trim();
+        if (toVal) payload.to = toVal;
+        if (roomVal) payload.room = roomVal;
+        if (!payload.to && !payload.room) {
+          alert('Bitte entweder "An User" oder "An Room" ausfüllen.');
+          return;
+        }
+        ws.send(JSON.stringify(payload));
+        writeLog('SEND', payload);
+      });
+    </script>
+  </body>
+  </html>
+

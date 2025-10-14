@@ -29,6 +29,8 @@ MVP: Passphrase -> SHA-256 -> AES-256-GCM; der Server routet, Client verschluess
   - Lokaldatei: `client_secure/index.html`
   - Gehostet (Node): `http://localhost:8080/app/secure`
   - Gehostet (Spring): `http://localhost:8081/app/secure/`
+- Svelte Client (SPA): `client_svelte/` – gehostet unter `/app/svelte`
+- Angular Client (Material): `client_angular/` – gehostet unter `/app/angular`
 
 Hinweise zum Secure-Client:
 - AAD bindet `{ v, alg, from, to|room, ts }`.
@@ -48,4 +50,15 @@ Hinweise zum Secure-Client:
 - Sync-Skripte (`client_svelte/scripts/`):
   - `sync-to-node.ps1` / `sync-to-node.sh` kopieren nach `server/public/app/svelte`
   - `sync-to-spring.ps1` / `sync-to-spring.sh` kopieren nach `server_spring/src/main/resources/static/app/svelte/`
+
+## Angular Client
+- Quelle: `client_angular/` (Angular + Material)
+- Entwickeln: `cd client_angular && npm install && npm start` -> `http://localhost:4200`
+- Build: `npm run build` -> Ergebnisse in `client_angular/dist/chaa-i-client-angular/`
+- Hosting:
+  - Node: `http://localhost:8080/app/angular` (nutzt Build oder `server/public/app/angular`)
+  - Spring: Dateien nach `server_spring/src/main/resources/static/app/angular/` kopieren -> `http://localhost:8081/app/angular/`
+- Sync-Skripte (`client_angular/scripts/`):
+  - `sync-to-node.ps1` / `sync-to-node.sh`
+  - `sync-to-spring.ps1` / `sync-to-spring.sh`
 

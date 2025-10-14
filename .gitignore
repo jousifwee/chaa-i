@@ -32,6 +32,9 @@ server/.env
 server/.env.*
 server/public/app/svelte/
 server_spring/src/main/resources/static/app/svelte/
+server/public/app/angular/
+server_spring/src/main/resources/static/app/angular/
+client_angular/dist/
 
 # TypeScript build info
 *.tsbuildinfo

@@ -36,13 +36,16 @@ $env:PORT=9090; npm run dev
 - Verschluesselter Client: `http://localhost:8080/app/secure`
 - Einfacher Client: `http://localhost:8080/app/simple`
 - Svelte Client: `http://localhost:8080/app/svelte`
+- Angular Client: `http://localhost:8080/app/angular`
 
 Statische Dateien:
 - `client_secure/` und `client_simple/` werden direkt gelesen
-- Svelte-Client wird aus `client_svelte/dist/` oder `server/public/app/svelte/` bedient
+- Svelte-Build wird aus `client_svelte/dist/` oder `server/public/app/svelte/` bedient
+- Angular-Build wird aus `client_angular/dist/chaa-i-client-angular/` oder `server/public/app/angular/` bedient
 
-## Svelte Sync-Skript
-- `client_svelte/scripts/sync-to-node.ps1` bzw. `sync-to-node.sh` kopieren den Build nach `server/public/app/svelte/`
+## Sync-Skripte
+- `client_svelte/scripts/sync-to-node.(ps1|sh)` → `server/public/app/svelte/`
+- `client_angular/scripts/sync-to-node.(ps1|sh)` → `server/public/app/angular/`
 
 ## Protokoll-Erwartung
 - `type: 'join'` mit `{ userId: string, rooms?: string[] }`

@@ -21,7 +21,8 @@ Voraussetzung: JDK 21+ und Maven.
 - Index: `http://localhost:8081/app/`
 - Verschluesselter Client: `http://localhost:8081/app/secure/`
 - Einfacher Client: `http://localhost:8081/app/simple/`
-- Svelte Client: `http://localhost:8081/app/svelte/` (nach Build-Kopie)
+- Svelte Client: `http://localhost:8081/app/svelte/`
+- Angular Client: `http://localhost:8081/app/angular/`
 
 Statische Dateien liegen in `server_spring/src/main/resources/static/app/`.
 
@@ -59,10 +60,15 @@ mvn -DskipTests spring-boot:build-image -Dspring-boot.build-image.imageName=chaa
 ```
 Danach wie oben mit `docker run` starten.
 
-## Svelte Client deployen
-- Quelle: `client_svelte/`
-- Build: `cd client_svelte && npm install && npm run build`
-- Sync-Skript: `client_svelte/scripts/sync-to-spring.ps1` oder `.sh`
-- Manuell: Inhalte von `client_svelte/dist/` nach `server_spring/src/main/resources/static/app/svelte/` kopieren
-- Aufruf: `http://localhost:8081/app/svelte/`
+## Client Deployments
+- Svelte
+  - Build: `cd client_svelte && npm install && npm run build`
+  - Sync: `client_svelte/scripts/sync-to-spring.(ps1|sh)`
+  - Ziel: `server_spring/src/main/resources/static/app/svelte/`
+  - Aufruf: `http://localhost:8081/app/svelte/`
+- Angular
+  - Build: `cd client_angular && npm install && npm run build`
+  - Sync: `client_angular/scripts/sync-to-spring.(ps1|sh)`
+  - Ziel: `server_spring/src/main/resources/static/app/angular/`
+  - Aufruf: `http://localhost:8081/app/angular/`
 

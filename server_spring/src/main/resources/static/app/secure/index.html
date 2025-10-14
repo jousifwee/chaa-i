@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>chaa-i – AES‑256‑GCM Client</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; line-height: 1.35; }
+      fieldset { border: 1px solid #8884; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+      legend { padding: 0 6px; }
+      label { display: block; margin: 6px 0 4px; font-size: .95rem; }
+      input[type="text"], input[type="password"], textarea { width: 100%; padding: 8px; border: 1px solid #8886; border-radius: 6px; font-family: inherit; }
+      textarea { min-height: 72px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      button { padding: 8px 12px; border-radius: 6px; border: 1px solid #6666; background: #eee; cursor: pointer; }
+      button[disabled] { opacity: .6; cursor: not-allowed; }
+      #log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; background: #00000008; padding: 10px; border-radius: 8px; max-height: 45vh; overflow: auto; }
+      .hint { color: #666; font-size: .9rem; }
+      .ok { color: #0a0; }
+      .err { color: #b00; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </head>
+  <body>
+    <h1>chaa-i – AES‑256‑GCM Client</h1>
+    <p class="hint">Ende‑zu‑Ende‑Verschl&uuml;sselung im Browser (Passphrase → SHA‑256 → AES‑256‑GCM). Der Server sieht nur Metadaten.</p>
+
+    <fieldset>
+      <legend>Verbindung</legend>
+      <label for="url">WebSocket‑URL</label>
+      <input id="url" type="text" value="ws://localhost:8081/ws" />
+
+      <div class="row">
+        <div>
+          <label for="userId">Eigene User‑ID</label>
+          <input id="userId" type="text" />
+        </div>
+        <div>
+          <label for="rooms">Rooms (Komma‑getrennt, optional)</label>
+          <input id="rooms" type="text" placeholder="z.B. general,dev" />
+        </div>
+      </div>
+
+      <label for="pass">Passphrase (nur RAM, wird nicht gespeichert)</label>
+      <input id="pass" type="password" autocomplete="off" />
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button id="applyPassBtn">Passphrase anwenden</button>
+      </div>
+      <div class="hint">Algorithmus: <span class="mono">aes-256-gcm-sha256</span>, AAD: <span class="mono">{ v, alg, from, to|room, ts }</span></div>
+
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="connectBtn">Verbinden</button>
+        <button id="disconnectBtn" disabled>Trennen</button>
+      </div>
+      <div id="status" class="hint" style="margin-top:6px;">Nicht verbunden</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Senden (verschl&uuml;sselt)</legend>
+      <div class="row">
+        <div>
+          <label for="to">An User (optional)</label>
+          <input id="to" type="text" placeholder="userId" />
+        </div>
+        <div>
+          <label for="room">An Room (optional)</label>
+          <input id="room" type="text" placeholder="room" />
+        </div>
+      </div>
+      <label for="text">Nachricht (Klartext; wird lokal verschl&uuml;sselt)</label>
+      <textarea id="text" placeholder="Nachricht..."></textarea>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="sendBtn" disabled>Senden</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Log</legend>
+      <div id="log"></div>
+    </fieldset>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const url = $("url");
+      const userId = $("userId");
+      const rooms = $("rooms");
+      const pass = $("pass");
+      const connectBtn = $("connectBtn");
+      const disconnectBtn = $("disconnectBtn");
+      const applyPassBtn = $("applyPassBtn");
+      const to = $("to");
+      const room = $("room");
+      const text = $("text");
+      const sendBtn = $("sendBtn");
+      const status = $("status");
+      const log = $("log");
+
+      // Restore last non‑secret prefs
+      try {
+        const saved = JSON.parse(localStorage.getItem('chaa_i_secure_client') || '{}');
+        if (saved.url) url.value = saved.url;
+        if (saved.userId) userId.value = saved.userId;
+        if (saved.rooms) rooms.value = saved.rooms;
+      } catch {}
+      if (!userId.value) userId.value = 'user-' + Math.random().toString(36).slice(2, 8);
+
+      function savePrefs() {
+        localStorage.setItem('chaa_i_secure_client', JSON.stringify({
+          url: url.value.trim(), userId: userId.value.trim(), rooms: rooms.value.trim()
+        }));
+      }
+
+      // Helpers
+      const te = new TextEncoder();
+      const td = new TextDecoder();
+      const b64enc = (bytes) => btoa(String.fromCharCode(...bytes));
+      const b64dec = (b64) => new Uint8Array(atob(b64).split('').map(c => c.charCodeAt(0)));
+
+      async function sha256(bytes) {
+        return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+      }
+
+      async function deriveKeyFromPassphrase(passphrase) {
+        const hash = await sha256(te.encode(passphrase)); // passphrase → SHA‑256 (32B)
+        return crypto.subtle.importKey(
+          'raw', hash, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+        );
+      }
+
+      function headerFor(from, toVal, roomVal) {
+        return { v: 1, alg: 'aes-256-gcm-sha256', from, to: toVal || undefined, room: roomVal || undefined, ts: Date.now() };
+      }
+
+      function aadBytesFor(header) {
+        return te.encode(JSON.stringify(header));
+      }
+
+      async function encryptUtf8(plaintext, key, aadBytes) {
+        const nonce = new Uint8Array(12);
+        crypto.getRandomValues(nonce);
+        const ct = new Uint8Array(
+          await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: aadBytes }, key, te.encode(plaintext))
+        );
+        return { nonceB64: b64enc(nonce), ciphertextB64: b64enc(ct) };
+      }
+
+      async function decryptUtf8(ciphertextB64, nonceB64, key, aadBytes) {
+        const ct = b64dec(ciphertextB64);
+        const nonce = b64dec(nonceB64);
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce, additionalData: aadBytes }, key, ct);
+        return td.decode(new Uint8Array(pt));
+      }
+
+      function setConnected(connected) {
+        connectBtn.disabled = connected;
+        disconnectBtn.disabled = !connected;
+        sendBtn.disabled = !connected;
+        status.textContent = connected ? 'Verbunden' : 'Nicht verbunden';
+        status.className = connected ? 'hint ok' : 'hint';
+      }
+
+      function writeLog(kind, obj) {
+        const time = new Date().toLocaleTimeString();
+        const line = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+        log.textContent += `[${time}] ${kind}: ${line}\n`;
+        log.scrollTop = log.scrollHeight;
+      }
+
+      let ws = null;
+      // Key-Ring: aktueller Schlüssel zuerst, ältere folgen (für Entschlüsselung älterer Nachrichten)
+      let keyRing = []; // Array<CryptoKey>
+
+      function setKey(newKey) {
+        keyRing.unshift(newKey);
+        if (keyRing.length > 5) keyRing.pop();
+      }
+
+      connectBtn.addEventListener('click', async () => {
+        const u = url.value.trim();
+        const me = userId.value.trim();
+        const rs = rooms.value.trim();
+        const pw = pass.value; // nicht speichern
+        if (!u || !me) { alert('URL und User‑ID sind erforderlich'); return; }
+        if (!pw) { alert('Passphrase ist erforderlich'); return; }
+
+        savePrefs();
+        try { const k = await deriveKeyFromPassphrase(pw); setKey(k); } catch (e) {
+          alert('Schlüsselableitung fehlgeschlagen');
+          return;
+        }
+
+        try { ws?.close(); } catch {}
+        ws = new WebSocket(u);
+
+        ws.addEventListener('open', () => {
+          setConnected(true);
+          writeLog('OPEN', u);
+          // Join (unverschlüsselt)
+          const joinMsg = { type: 'join', userId: me };
+          const list = rs ? rs.split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (list.length) joinMsg.rooms = list;
+          ws.send(JSON.stringify(joinMsg));
+          writeLog('SEND', joinMsg);
+        });
+
+        ws.addEventListener('message', async (ev) => {
+          let data;
+          try { data = JSON.parse(ev.data); } catch { writeLog('RECV', ev.data); return; }
+          if (data.type !== 'msg') { writeLog('RECV', data); return; }
+          // Erwartet Protokoll gem. docs/PROTOKOLL.md
+          try {
+            if (!keyRing.length) throw new Error('Kein Schlüssel');
+            const { v, alg, from, to: toVal, room: roomVal, ts, nonce, aad, ciphertext } = data;
+            if (v !== 1 || alg !== 'aes-256-gcm-sha256') throw new Error('Unbekanntes v/alg');
+            const header = { v, alg, from, to: toVal, room: roomVal, ts };
+            const aadBytes = b64dec(aad);
+            // Optional: Header-Konsistenz prüfen
+            const aadExpected = aadBytesFor(header);
+            const equal = (a,b)=> a.length===b.length && a.every((x,i)=>x===b[i]);
+            if (!equal(aadBytes, aadExpected)) writeLog('WARN', 'AAD stimmt nicht exakt mit Header überein');
+            // Versuche mit allen Schlüsseln im Ring zu entschlüsseln (aktueller zuerst)
+            let plaintext = null;
+            let ok = false;
+            for (const k of keyRing) {
+              try {
+                plaintext = await decryptUtf8(ciphertext, nonce, k, aadBytes);
+                ok = true;
+                break;
+              } catch {}
+            }
+            if (!ok) throw new Error('GCM-Auth-Fehler oder falscher Schlüssel');
+            writeLog('RECV-PLAINTEXT', { from, to: toVal, room: roomVal, text: plaintext });
+          } catch (e) {
+            writeLog('RECV-ERROR', String(e));
+          }
+        });
+
+        ws.addEventListener('close', () => {
+          writeLog('CLOSE', 'verbindung geschlossen');
+          setConnected(false);
+        });
+
+        ws.addEventListener('error', () => {
+          writeLog('ERROR', 'WebSocket Fehler');
+          status.className = 'hint err';
+        });
+      });
+
+      disconnectBtn.addEventListener('click', () => {
+        try { ws?.close(); } catch {}
+      });
+
+      sendBtn.addEventListener('click', async () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        if (!keyRing.length) { alert('Kein Schlüssel'); return; }
+        const me = userId.value.trim();
+        const toVal = to.value.trim();
+        const roomVal = room.value.trim();
+        if (!toVal && !roomVal) { alert('Bitte "An User" oder "An Room" ausfüllen.'); return; }
+        const header = headerFor(me, toVal, roomVal);
+        const aadBytes = aadBytesFor(header);
+        try {
+          const { nonceB64, ciphertextB64 } = await encryptUtf8(text.value, keyRing[0], aadBytes);
+          const aadB64 = b64enc(aadBytes);
+          const msg = { type: 'msg', ...header, aad: aadB64, nonce: nonceB64, ciphertext: ciphertextB64 };
+          ws.send(JSON.stringify(msg));
+          writeLog('SEND', msg);
+        } catch (e) {
+          writeLog('ENCRYPT-ERROR', String(e));
+        }
+      });
+
+      // Passphrase jederzeit in der Sitzung änderbar
+      applyPassBtn.addEventListener('click', async () => {
+        const pw = pass.value;
+        if (!pw) { alert('Passphrase ist erforderlich'); return; }
+        try {
+          const k = await deriveKeyFromPassphrase(pw);
+          setKey(k);
+          writeLog('KEY-UPDATE', 'Passphrase angewendet. Neue Nachrichten werden mit dem neuen Schlüssel verschlüsselt.');
+        } catch (e) {
+          writeLog('KEY-ERROR', 'Schlüsselableitung fehlgeschlagen');
+        }
+      });
+    </script>
+  </body>
+  </html>
+

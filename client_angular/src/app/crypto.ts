@@ -1,8 +1,25 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-const b64encode = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-const b64decode = (value: string) => new Uint8Array(atob(value).split('').map((c) => c.charCodeAt(0)));
+const CHUNK_SIZE = 0x8000; // 32 KiB, keeps argument counts below browser limits
+
+const b64encode = (bytes: Uint8Array) => {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+};
+
+const b64decode = (value: string) => {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
@@ -45,4 +62,3 @@ export async function decryptUtf8(ciphertextB64: string, nonceB64: string, key: 
 }
 
 export { b64encode, b64decode };
-

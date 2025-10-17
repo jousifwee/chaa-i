@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { deriveKey, buildHeader, aadBytes, encryptUtf8, decryptUtf8 } from './crypto';
+import { deriveKey, buildHeader, aadBytes, encryptUtf8, decryptUtf8, b64encode, b64decode } from './crypto';
 
 const STORAGE_KEY = 'chaa_i_angular_client';
 const MAX_LOG = 400;
@@ -175,12 +175,12 @@ export class AppComponent {
         if (!this.keyRing.length) throw new Error('Kein Schluessel');
         const { v, alg, from, to, room, ts, nonce, aad, ciphertext } = data;
         if (v !== 1 || alg !== 'aes-256-gcm-sha256') throw new Error('Unbekanntes v/alg');
-        const aadBytes = Uint8Array.from(atob(aad), (c) => c.charCodeAt(0));
+        const aadBuffer = b64decode(aad);
         let ok = false;
         let plaintext = '';
         for (const candidate of this.keyRing) {
           try {
-            plaintext = await decryptUtf8(ciphertext, nonce, candidate, aadBytes);
+            plaintext = await decryptUtf8(ciphertext, nonce, candidate, aadBuffer);
             ok = true;
             break;
           } catch {
@@ -260,7 +260,7 @@ export class AppComponent {
 
     try {
       const { nonceB64, ciphertextB64 } = await encryptUtf8(text, this.keyRing[0], aad);
-      const message = { type: 'msg', ...header, aad: btoa(String.fromCharCode(...aad)), nonce: nonceB64, ciphertext: ciphertextB64 };
+      const message = { type: 'msg', ...header, aad: b64encode(aad), nonce: nonceB64, ciphertext: ciphertextB64 };
       socket.send(JSON.stringify(message));
       this.appendLog('SEND', message);
     } catch (error) {

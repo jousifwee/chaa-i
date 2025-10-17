@@ -1,8 +1,35 @@
 <mat-toolbar color="primary" class="toolbar">
-  chaa-i · Angular Client
+  <span>chaa-i - Angular Client</span>
+  <span class="spacer"></span>
+  <div class="mode-switch">
+    <button
+      mat-stroked-button
+      [color]="mode() === 'simple' ? 'accent' : null"
+      [disabled]="mode() === 'simple'"
+      (click)="setMode('simple')"
+    >
+      Simple
+    </button>
+    <button
+      mat-stroked-button
+      [color]="mode() === 'advanced' ? 'accent' : null"
+      [disabled]="mode() === 'advanced'"
+      (click)="setMode('advanced')"
+    >
+      Erweitert
+    </button>
+    <button
+      mat-stroked-button
+      [color]="mode() === 'diagnostic' ? 'accent' : null"
+      [disabled]="mode() === 'diagnostic'"
+      (click)="setMode('diagnostic')"
+    >
+      Diagnose
+    </button>
+  </div>
 </mat-toolbar>
 
-<div class="shell">
+<ng-template #formsColumn>
   <div class="column column--forms">
     <mat-card>
       <mat-card-title>Grundkonfiguration</mat-card-title>
@@ -39,7 +66,7 @@
           </div>
         </ng-container>
         <ng-template #plaintextInfo>
-          <div class="note">Klartextmodus aktiv – Nachrichten werden ohne AES-GCM versendet.</div>
+          <div class="note">Klartextmodus aktiv - Nachrichten werden ohne AES-GCM versendet.</div>
         </ng-template>
       </mat-card-content>
     </mat-card>
@@ -78,15 +105,119 @@
       </mat-card-content>
     </mat-card>
   </div>
+</ng-template>
 
-  <div class="column column--log">
-    <mat-card class="log-card">
-      <mat-card-title>Log</mat-card-title>
-      <mat-card-content class="log-content">
-        <div id="log">
-          <div *ngFor="let entry of logEntries()">{{ entry }}</div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-</div>
+<ng-container [ngSwitch]="mode()">
+  <ng-container *ngSwitchCase="'simple'">
+    <div class="simple-shell">
+      <mat-card class="simple-card">
+        <mat-card-title>Verbindung</mat-card-title>
+        <mat-card-content class="card-content">
+          <div class="simple-status-row">
+            <span class="status" [class.ok]="statusClass() === 'ok'">{{ status() }}</span>
+            <span class="simple-meta">User: {{ configForm.get('userId')!.value }}</span>
+            <span class="simple-meta">Schluessel: {{ simpleKeyLabel }}</span>
+          </div>
+          <div class="button-row">
+            <button mat-raised-button color="primary" (click)="connect()" [disabled]="connected()">Verbinden</button>
+            <button mat-stroked-button color="primary" (click)="disconnect()" [disabled]="!connected()">Trennen</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="simple-card">
+        <mat-card-title>Nachricht</mat-card-title>
+        <mat-card-content [formGroup]="simpleForm" class="card-content">
+          <mat-form-field appearance="outline" class="stretch">
+            <mat-label>Empfaenger</mat-label>
+            <input matInput formControlName="to" placeholder="userId" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="stretch">
+            <mat-label>Nachricht</mat-label>
+            <textarea matInput rows="3" formControlName="text" placeholder="Nachricht..."></textarea>
+          </mat-form-field>
+          <div class="button-row">
+            <button mat-raised-button color="accent" (click)="sendMessage()" [disabled]="!connected()">Senden</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="simple-card simple-log-card">
+        <mat-card-title>Nachrichten</mat-card-title>
+        <mat-card-content>
+          <div class="simple-log">
+            <div *ngIf="!simpleLogEntries().length" class="simple-log__empty">Noch keine Nachrichten.</div>
+            <div
+              *ngFor="let entry of simpleLogEntries()"
+              class="simple-log__entry"
+              [class.simple-log__entry--send]="entry.direction === 'SEND'"
+            >
+              <div class="simple-log__meta">
+                <span class="simple-log__badge">{{ entry.direction }}</span>
+                <span class="simple-log__time">{{ entry.ts | date: 'mediumTime' }}</span>
+              </div>
+              <div class="simple-log__text">
+                <div *ngIf="entry.direction === 'SEND'">an {{ entry.to }}</div>
+                <div *ngIf="entry.direction === 'RECV'">von {{ entry.from || 'unbekannt' }}</div>
+                <div class="simple-log__message">{{ entry.text }}</div>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </ng-container>
+
+  <ng-container *ngSwitchCase="'diagnostic'">
+    <div class="shell">
+      <ng-container *ngTemplateOutlet="formsColumn"></ng-container>
+      <div class="column column--log">
+        <mat-card class="log-card">
+          <mat-card-title>Diagnose</mat-card-title>
+          <mat-card-content class="diag-content">
+            <div *ngIf="!diagnosticLogEntries().length" class="diag-empty">Noch keine Diagnosedaten vorhanden.</div>
+            <div *ngFor="let entry of diagnosticLogEntries()" class="diag-entry">
+              <div class="diag-header-row">
+                <span class="diag-badge" [class.diag-badge--send]="entry.direction === 'SEND'">
+                  {{ entry.direction }}
+                </span>
+                <span class="diag-time">{{ entry.ts | date: 'mediumTime' }}</span>
+                <span class="diag-note" *ngIf="entry.notes">{{ entry.notes }}</span>
+              </div>
+              <div class="diag-metrics">
+                <div><strong>Plaintext:</strong> {{ entry.plaintextLength }} Byte</div>
+                <div><strong>Ciphertext:</strong> {{ entry.ciphertextLength }} Byte</div>
+                <div><strong>AAD:</strong> {{ entry.aadLength }} Byte</div>
+                <div><strong>Nonce:</strong> {{ entry.nonceLength }} Byte</div>
+              </div>
+              <div class="diag-section">
+                <strong>Header</strong>
+                <pre>{{ entry.header | json }}</pre>
+              </div>
+              <div class="diag-section">
+                <strong>AAD (decoded)</strong>
+                <pre>{{ entry.aadPreview }}</pre>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngSwitchDefault>
+    <div class="shell">
+      <ng-container *ngTemplateOutlet="formsColumn"></ng-container>
+      <div class="column column--log">
+        <mat-card class="log-card">
+          <mat-card-title>Log</mat-card-title>
+          <mat-card-content class="log-content">
+            <div id="log">
+              <div *ngFor="let entry of logEntries()">{{ entry }}</div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>

@@ -12,6 +12,39 @@ import { deriveKey, buildHeader, aadBytes, encryptUtf8, decryptUtf8, b64encode, 
 
 const STORAGE_KEY = 'chaa_i_angular_client';
 const MAX_LOG = 400;
+const SIMPLE_KEY = 'ABCDEFG';
+const MAX_SIMPLE_LOG = 200;
+const MAX_DIAG_LOG = 200;
+
+type AppMode = 'advanced' | 'simple' | 'diagnostic';
+
+interface SimpleLogEntry {
+  direction: 'SEND' | 'RECV';
+  text: string;
+  to?: string;
+  from?: string;
+  ts: number;
+}
+
+interface DiagnosticLogEntry {
+  direction: 'SEND' | 'RECV';
+  ts: number;
+  plaintextLength: number;
+  ciphertextLength: number;
+  aadLength: number;
+  nonceLength: number;
+  header: Record<string, unknown>;
+  aadPreview: string;
+  notes?: string;
+}
+
+interface ConfigFormValues {
+  url: string;
+  userId: string;
+  rooms: string;
+  pass: string;
+  useEncryption: boolean;
+}
 
 @Component({
   selector: 'app-root',
@@ -47,6 +80,17 @@ export class AppComponent {
     text: ''
   });
 
+  readonly mode = signal<AppMode>('advanced');
+
+  readonly simpleForm = this.fb.nonNullable.group({
+    to: '',
+    text: ''
+  });
+
+  readonly simpleLogEntries = signal<SimpleLogEntry[]>([]);
+  readonly diagnosticLogEntries = signal<DiagnosticLogEntry[]>([]);
+  readonly simpleKeyLabel = SIMPLE_KEY;
+
   readonly status = signal('Nicht verbunden');
   readonly statusClass = signal<'ok' | 'idle'>('idle');
   readonly logEntries = signal<string[]>([]);
@@ -54,6 +98,10 @@ export class AppComponent {
 
   private ws: WebSocket | null = null;
   private keyRing: CryptoKey[] = [];
+  private readonly simpleUserId = this.randomUserId('simple-');
+  private simpleKeyLoaded = false;
+  private advancedConfigSnapshot: ConfigFormValues | null = null;
+  private readonly aadDecoder = new TextDecoder();
 
   constructor() {
     this.restore();
@@ -89,8 +137,8 @@ export class AppComponent {
     }
   }
 
-  private randomUserId() {
-    return 'user-' + Math.random().toString(36).slice(2, 8);
+  private randomUserId(prefix = 'user-') {
+    return prefix + Math.random().toString(36).slice(2, 8);
   }
 
   appendLog(kind: string, payload: unknown) {
@@ -110,7 +158,98 @@ export class AppComponent {
     this.statusClass.set(flag ? 'ok' : 'idle');
   }
 
+  setMode(mode: AppMode) {
+    const current = this.mode();
+    if (current === mode) return;
+
+    if (current === 'simple' && mode !== 'simple' && this.advancedConfigSnapshot) {
+      this.configForm.patchValue(this.advancedConfigSnapshot, { emitEvent: false });
+      this.persist();
+      this.advancedConfigSnapshot = null;
+    }
+
+    if (mode === 'simple') {
+      if (current !== 'simple') {
+        this.advancedConfigSnapshot = this.configForm.getRawValue() as ConfigFormValues;
+      }
+      this.applySimpleModeDefaults();
+      this.simpleForm.reset({ to: '', text: '' });
+    }
+
+    this.mode.set(mode);
+  }
+
+  private applySimpleModeDefaults() {
+    this.configForm.patchValue(
+      {
+        userId: this.simpleUserId,
+        rooms: '',
+        pass: SIMPLE_KEY,
+        useEncryption: true
+      },
+      { emitEvent: false }
+    );
+    this.keyRing = [];
+    this.simpleKeyLoaded = false;
+  }
+
+  private recordSimpleLog(entry: SimpleLogEntry) {
+    this.simpleLogEntries.update((list) => [...list, entry].slice(-MAX_SIMPLE_LOG));
+  }
+
+  private recordDiagnosticLog(entry: DiagnosticLogEntry) {
+    this.diagnosticLogEntries.update((list) => [...list, entry].slice(-MAX_DIAG_LOG));
+  }
+
+  private async ensureSimpleKeyLoaded() {
+    if (this.simpleKeyLoaded) return;
+    const key = await deriveKey(SIMPLE_KEY);
+    this.keyRing.unshift(key);
+    this.simpleKeyLoaded = true;
+    if (this.keyRing.length > 5) this.keyRing.pop();
+  }
+
+  private decodeAad(aad: Uint8Array): string {
+    try {
+      return this.aadDecoder.decode(aad);
+    } catch {
+      return '[unlesbarer AAD-Inhalt]';
+    }
+  }
+
+  private createDiagnosticEntry(params: {
+    direction: 'SEND' | 'RECV';
+    header: Record<string, unknown>;
+    aadBytes: Uint8Array;
+    ciphertextB64: string;
+    nonceB64: string;
+    plaintext: string;
+    notes?: string;
+  }): DiagnosticLogEntry {
+    const { direction, header, aadBytes, ciphertextB64, nonceB64, plaintext, notes } = params;
+    const ciphertextBytes = b64decode(ciphertextB64);
+    const nonceBytes = b64decode(nonceB64);
+    return {
+      direction,
+      ts: typeof header['ts'] === 'number' ? (header['ts'] as number) : Date.now(),
+      plaintextLength: plaintext.length,
+      ciphertextLength: ciphertextBytes.length,
+      aadLength: aadBytes.length,
+      nonceLength: nonceBytes.length,
+      header,
+      aadPreview: this.decodeAad(aadBytes),
+      notes
+    };
+  }
+
   async connect() {
+    if (this.mode() === 'simple') {
+      this.configForm.patchValue(
+        { userId: this.simpleUserId, rooms: '', pass: SIMPLE_KEY, useEncryption: true },
+        { emitEvent: false }
+      );
+    }
+
     const { url, userId, rooms, pass, useEncryption } = this.configForm.getRawValue();
     if (!url || !userId) {
       alert('URL und User-ID sind erforderlich');
@@ -118,13 +257,16 @@ export class AppComponent {
     }
 
     this.keyRing = [];
+    this.simpleKeyLoaded = false;
     if (useEncryption) {
       if (!pass) {
         alert('Passphrase ist erforderlich');
         return;
       }
       try {
-        this.keyRing.unshift(await deriveKey(pass));
+        const key = await deriveKey(pass);
+        this.keyRing.unshift(key);
+        if (pass === SIMPLE_KEY) this.simpleKeyLoaded = true;
       } catch {
         alert('Schluesselableitung fehlgeschlagen');
         return;
@@ -188,7 +330,20 @@ export class AppComponent {
           }
         }
         if (!ok) throw new Error('GCM-Auth-Fehler oder falscher Schluessel');
-        this.appendLog('RECV-PLAINTEXT', { from, to, room, text: plaintext, ts });
+        const payload = { from, to, room, text: plaintext, ts };
+        this.appendLog('RECV-PLAINTEXT', payload);
+        this.recordSimpleLog({ direction: 'RECV', text: plaintext, from, to, ts });
+        this.recordDiagnosticLog(
+          this.createDiagnosticEntry({
+            direction: 'RECV',
+            header: { from, to, room, ts },
+            aadBytes: aadBuffer,
+            ciphertextB64: ciphertext,
+            nonceB64: nonce,
+            plaintext,
+            notes: from ? `Von ${from}` : undefined
+          })
+        );
       } catch (error) {
         this.appendLog('RECV-ERROR', String(error));
       }
@@ -228,7 +383,62 @@ export class AppComponent {
     }
   }
 
+  private async sendSimpleMessage() {
+    const socket = this.ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      alert('Nicht verbunden');
+      return;
+    }
+
+    const { to, text } = this.simpleForm.getRawValue();
+    if (!to) {
+      alert('Empfaenger ist erforderlich');
+      return;
+    }
+    if (!text) {
+      alert('Nachricht ist erforderlich');
+      return;
+    }
+
+    try {
+      await this.ensureSimpleKeyLoaded();
+    } catch {
+      alert('Schluesselableitung fehlgeschlagen');
+      return;
+    }
+
+    const header = buildHeader(this.configForm.get('userId')!.value || this.simpleUserId, to || undefined);
+    const aad = aadBytes(header);
+
+    try {
+      const { nonceB64, ciphertextB64 } = await encryptUtf8(text, this.keyRing[0], aad);
+      const message = { type: 'msg', ...header, aad: b64encode(aad), nonce: nonceB64, ciphertext: ciphertextB64 };
+      socket.send(JSON.stringify(message));
+      this.appendLog('SEND', message);
+      this.recordSimpleLog({ direction: 'SEND', text, to, ts: header.ts });
+      this.recordDiagnosticLog(
+        this.createDiagnosticEntry({
+          direction: 'SEND',
+          header,
+          aadBytes: aad,
+          ciphertextB64,
+          nonceB64,
+          plaintext: text,
+          notes: 'Simple-Modus'
+        })
+      );
+      this.simpleForm.patchValue({ text: '' });
+    } catch (error) {
+      this.appendLog('ENCRYPT-ERROR', String(error));
+    }
+  }
+
   async sendMessage() {
+    if (this.mode() === 'simple') {
+      await this.sendSimpleMessage();
+      return;
+    }
+
     const socket = this.ws;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const { to, room, text } = this.messageForm.getRawValue();
@@ -263,6 +473,17 @@ export class AppComponent {
       const message = { type: 'msg', ...header, aad: b64encode(aad), nonce: nonceB64, ciphertext: ciphertextB64 };
       socket.send(JSON.stringify(message));
       this.appendLog('SEND', message);
+      this.recordDiagnosticLog(
+        this.createDiagnosticEntry({
+          direction: 'SEND',
+          header,
+          aadBytes: aad,
+          ciphertextB64,
+          nonceB64,
+          plaintext: text,
+          notes: room ? `Room=${room}` : to ? `Direct=${to}` : 'Broadcast'
+        })
+      );
     } catch (error) {
       this.appendLog('ENCRYPT-ERROR', String(error));
     }

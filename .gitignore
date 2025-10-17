@@ -22,8 +22,10 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
-# Node/TypeScript (server)
+# Node/TypeScript
+node_modules/
 server/node_modules/
+client_angular/node_modules/
 server/dist/
 server/coverage/
 server/.turbo/
@@ -32,6 +34,13 @@ server/.env
 server/.env.*
 server/public/app/svelte/
 server_spring/src/main/resources/static/app/svelte/
+server/public/app/angular/
+server_spring/src/main/resources/static/app/angular/
+client_angular/dist/
+client_angular/.angular/
+client_angular/out-tsc/
+client_angular/tmp/
+client_angular/.nx/
 
 # TypeScript build info
 *.tsbuildinfo

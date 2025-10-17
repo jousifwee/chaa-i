@@ -11,10 +11,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
 const clientSecurePath = path.join(repoRoot, 'client_secure', 'index.html');
 const clientSimplePath = path.join(repoRoot, 'client_simple', 'index.html');
-const svelteCandidateDirs = [
-  path.join(repoRoot, 'client_svelte', 'dist'),
-  path.join(repoRoot, 'server', 'public', 'app', 'svelte')
-];
+const bundleCandidates = {
+  svelte: [
+    path.join(repoRoot, 'client_svelte', 'dist'),
+    path.join(repoRoot, 'server', 'public', 'app', 'svelte')
+  ],
+  angular: [
+    path.join(repoRoot, 'client_angular', 'dist', 'chaa-i-client-angular'),
+    path.join(repoRoot, 'client_angular', 'dist', 'chaa-i-client-angular', 'browser'),
+    path.join(repoRoot, 'server', 'public', 'app', 'angular')
+  ]
+} as const;
 
 function serveHtmlFile(filePath: string, res: http.ServerResponse) {
   try {
@@ -40,6 +47,7 @@ function serveAppIndex(res: http.ServerResponse, port: number) {
   <li><a href="/app/secure/">Verschluesselter Client (AES-256-GCM)</a></li>
   <li><a href="/app/simple/">Einfacher Klartext-Client</a></li>
   <li><a href="/app/svelte/">Svelte Client (Klartext + AES-256-GCM)</a></li>
+  <li><a href="/app/angular/">Angular Client (Klartext + AES-256-GCM)</a></li>
   <li><a href="/">Status</a> (Text)</li>
   <li>WebSocket: <code>ws://localhost:${port}/ws</code></li>
 </ul>
@@ -63,9 +71,9 @@ function guessContentType(p: string): string {
   return 'application/octet-stream';
 }
 
-function resolveSvelteFile(subPath: string): string | null {
+function resolveBundleFile(subPath: string, candidates: readonly string[]): string | null {
   const sanitized = subPath.split('?')[0].split('#')[0];
-  for (const base of svelteCandidateDirs) {
+  for (const base of candidates) {
     const normalizedBase = path.normalize(base);
     if (!fs.existsSync(normalizedBase)) continue;
     const fsPath = path.normalize(path.join(normalizedBase, sanitized));
@@ -84,11 +92,10 @@ function resolveSvelteFile(subPath: string): string | null {
   return null;
 }
 
-function serveSvelte(reqUrl: string, res: http.ServerResponse) {
-  const base = '/app/svelte';
+function serveBundle(reqUrl: string, res: http.ServerResponse, base: string, candidates: readonly string[], label: string, buildHint: string) {
   let sub = reqUrl.slice(base.length);
   if (!sub || sub === '/') sub = '/index.html';
-  const filePath = resolveSvelteFile(sub);
+  const filePath = resolveBundleFile(sub, candidates);
   if (filePath) {
     try {
       const buf = fs.readFileSync(filePath);
@@ -101,15 +108,37 @@ function serveSvelte(reqUrl: string, res: http.ServerResponse) {
     }
   }
 
-  const hints = svelteCandidateDirs
+  const hints = candidates
     .map((dir) => {
       const exists = fs.existsSync(dir);
       return `<li><code>${dir}</code> ${exists ? '(gefunden)' : '(fehlt)'}</li>`;
     })
     .join('');
-  const html = `<!doctype html><meta charset="utf-8"><title>chaa-i - Svelte</title><body style="font-family:system-ui;margin:24px"><h1>Svelte Build fehlt</h1><p>Bitte im Ordner <code>client_svelte</code> <code>npm install</code> und <code>npm run build</code> ausfuehren. Danach optional <code>./scripts/sync-to-node.(ps1|sh)</code> verwenden.</p><p>Gesuchte Pfade:</p><ul>${hints}</ul></body>`;
+  const html = `<!doctype html><meta charset="utf-8"><title>chaa-i - ${label}</title><body style="font-family:system-ui;margin:24px"><h1>${label} Build fehlt</h1><p>${buildHint}</p><p>Gesuchte Pfade:</p><ul>${hints}</ul></body>`;
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(html);
+}
+
+function serveSvelte(reqUrl: string, res: http.ServerResponse) {
+  serveBundle(
+    reqUrl,
+    res,
+    '/app/svelte',
+    bundleCandidates.svelte,
+    'Svelte',
+    'Bitte im Ordner <code>client_svelte</code> <code>npm install</code> und <code>npm run build</code> ausfuehren. Danach optional <code>./scripts/sync-to-node.(ps1|sh)</code> verwenden.'
+  );
+}
+
+function serveAngular(reqUrl: string, res: http.ServerResponse) {
+  serveBundle(
+    reqUrl,
+    res,
+    '/app/angular',
+    bundleCandidates.angular,
+    'Angular',
+    'Bitte im Ordner <code>client_angular</code> <code>npm install</code> und <code>npm run build</code> ausfuehren. Danach optional <code>./scripts/sync-to-node.(ps1|sh)</code> verwenden.'
+  );
 }
 
 const server = http.createServer((req, res) => {
@@ -134,6 +163,10 @@ const server = http.createServer((req, res) => {
     }
     if (req.url?.startsWith('/app/svelte')) {
       serveSvelte(req.url, res);
+      return;
+    }
+    if (req.url?.startsWith('/app/angular')) {
+      serveAngular(req.url, res);
       return;
     }
   }

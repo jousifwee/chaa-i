@@ -209,7 +209,8 @@
 <style>
   :root { color-scheme: light dark; }
   main { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; line-height: 1.35; }
-  fieldset { border: 1px solid #8884; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+  fieldset { border: 1px solid #8884; border-radius: 8px; padding: 12px; margin: 0; }
+  fieldset + fieldset { margin-top: 12px; }
   legend { padding: 0 6px; }
   label { display: block; margin: 6px 0 4px; font-size: .95rem; }
   input, textarea { width: 100%; padding: 8px; border: 1px solid #8886; border-radius: 6px; font-family: inherit; }
@@ -221,82 +222,93 @@
   .flow { display: flex; flex-direction: column; gap: 8px; }
   .hint { color: #666; font-size: .9rem; }
   .hint.small { font-size: .8rem; }
-  .status { margin-top: 8px; font-size: .95rem; color: #a00; }
+  .status { font-size: .95rem; color: #a00; }
   .status.ok { color: #0a0; }
   .note { background: #0000000f; padding: 8px; border-radius: 6px; }
-  #log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; background: #00000010; padding: 10px; border-radius: 8px; max-height: 45vh; overflow: auto; }
+  #log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; background: #00000010; padding: 10px; border-radius: 8px; flex: 1 1 auto; overflow: auto; }
+  .layout { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); gap: 16px; }
+  .panel-stack { display: flex; flex-direction: column; gap: 12px; }
+  .log-fieldset { display: flex; flex-direction: column; gap: 10px; min-height: 100%; }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    #log { max-height: 45vh; }
+  }
 </style>
 
 <main>
   <h1>chaa-i - Svelte Client</h1>
   <p class="hint">Unterstuetzt Klartext und AES-256-GCM (Passphrase -> SHA-256). Konfiguration wird lokal gespeichert.</p>
 
-  <fieldset>
-    <legend>Grundkonfiguration</legend>
-    <div class="grid-two">
-      <label>Serveradresse
-        <input bind:value={url} placeholder="ws://host:port/ws" />
-      </label>
-      <label>Username
-        <input bind:value={userId} />
-      </label>
-    </div>
-    <div class="grid-two">
-      <label>Standard-Rooms (Komma getrennt)
-        <input bind:value={rooms} placeholder="z.b. general,dev" />
-      </label>
-      <label>
-        <span>Verschluesselung</span>
+  <div class="layout">
+    <div class="panel-stack">
+      <fieldset>
+        <legend>Grundkonfiguration</legend>
+        <div class="grid-two">
+          <label>Serveradresse
+            <input bind:value={url} placeholder="ws://host:port/ws" />
+          </label>
+          <label>Username
+            <input bind:value={userId} />
+          </label>
+        </div>
+        <div class="grid-two">
+          <label>Standard-Rooms (Komma getrennt)
+            <input bind:value={rooms} placeholder="z.b. general,dev" />
+          </label>
+          <label>
+            <span>Verschluesselung</span>
+            <div class="inline">
+              <label><input type="checkbox" bind:checked={useEncryption} /> aktiv</label>
+            </div>
+          </label>
+        </div>
+        {#if useEncryption}
+          <div class="grid-two">
+            <label>Passphrase
+              <input type="password" bind:value={pass} />
+            </label>
+            <div class="flow">
+              <button on:click={applyPass}>Passphrase anwenden</button>
+              <span class="hint small">Username, Serveradresse und Passphrase werden lokal gespeichert.</span>
+            </div>
+          </div>
+        {:else}
+          <div class="note hint small">Klartextmodus aktiv. Nachrichten werden ohne AES-GCM versendet.</div>
+        {/if}
+      </fieldset>
+
+      <fieldset>
+        <legend>Verbindung</legend>
         <div class="inline">
-          <label><input type="checkbox" bind:checked={useEncryption} /> aktiv</label>
+          <button on:click={connect} disabled={connected}>Verbinden</button>
+          <button on:click={disconnect} disabled={!connected}>Trennen</button>
+          <span class={statusClass}>{status}</span>
         </div>
-      </label>
-    </div>
-    {#if useEncryption}
-      <div class="grid-two">
-        <label>Passphrase
-          <input type="password" bind:value={pass} />
+      </fieldset>
+
+      <fieldset>
+        <legend>Nachricht senden</legend>
+        <div class="grid-two">
+          <label>An User (optional)
+            <input bind:value={to} placeholder="userId" />
+          </label>
+          <label>An Room (optional)
+            <input bind:value={room} placeholder="room" />
+          </label>
+        </div>
+        <label>Nachricht
+          <textarea bind:value={text} placeholder="Nachricht..."></textarea>
         </label>
-        <div class="flow">
-          <button on:click={applyPass}>Passphrase anwenden</button>
-          <span class="hint small">Username, Serveradresse und Passphrase werden im Browser-Speicher abgelegt.</span>
+        <div class="inline">
+          <button on:click={send} disabled={!connected}>Senden</button>
         </div>
-      </div>
-    {:else}
-      <div class="note hint small">Klartextmodus aktiv. Nachrichten werden ohne AES-GCM versendet.</div>
-    {/if}
-  </fieldset>
-
-  <fieldset>
-    <legend>Verbindung</legend>
-    <div class="inline">
-      <button on:click={connect} disabled={connected}>Verbinden</button>
-      <button on:click={disconnect} disabled={!connected}>Trennen</button>
+      </fieldset>
     </div>
-    <div class={statusClass}>{status}</div>
-  </fieldset>
 
-  <fieldset>
-    <legend>Nachricht senden</legend>
-    <div class="grid-two">
-      <label>An User (optional)
-        <input bind:value={to} placeholder="userId" />
-      </label>
-      <label>An Room (optional)
-        <input bind:value={room} placeholder="room" />
-      </label>
-    </div>
-    <label>Nachricht
-      <textarea bind:value={text} placeholder="Nachricht..."></textarea>
-    </label>
-    <div class="inline">
-      <button on:click={send} disabled={!connected}>Senden</button>
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>Log</legend>
-    <div id="log">{#each log as line}<div>{line}</div>{/each}</div>
-  </fieldset>
+    <fieldset class="log-fieldset">
+      <legend>Log</legend>
+      <div id="log">{#each log as line}<div>{line}</div>{/each}</div>
+    </fieldset>
+  </div>
 </main>
 

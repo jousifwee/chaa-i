@@ -1,0 +1,29 @@
+<mat-card class="diag-card">
+  <mat-card-title>Diagnose</mat-card-title>
+  <mat-card-content class="diag-content">
+    <div *ngIf="!entries.length" class="diag-empty">Noch keine Diagnosedaten vorhanden.</div>
+    <div *ngFor="let entry of entries" class="diag-entry">
+      <div class="diag-header-row">
+        <span class="diag-badge" [class.diag-badge--send]="entry.direction === 'SEND'">
+          {{ entry.direction }}
+        </span>
+        <span class="diag-time">{{ entry.ts | date: 'mediumTime' }}</span>
+        <span class="diag-note" *ngIf="entry.notes">{{ entry.notes }}</span>
+      </div>
+      <div class="diag-metrics">
+        <div><strong>Plaintext:</strong> {{ entry.plaintextLength }} Byte</div>
+        <div><strong>Ciphertext:</strong> {{ entry.ciphertextLength }} Byte</div>
+        <div><strong>AAD:</strong> {{ entry.aadLength }} Byte</div>
+        <div><strong>Nonce:</strong> {{ entry.nonceLength }} Byte</div>
+      </div>
+      <div class="diag-section">
+        <strong>Header</strong>
+        <pre>{{ entry.header | json }}</pre>
+      </div>
+      <div class="diag-section">
+        <strong>AAD (decoded)</strong>
+        <pre>{{ entry.aadPreview }}</pre>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

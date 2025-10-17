@@ -34,3 +34,6 @@ npm run build
 - Umschaltbare AES-256-GCM Verschluesselung (Passphrase → SHA-256)
 - WebSocket Log mit Statusanzeigen, analog zum Svelte-Client
 
+## Überarbeitung
+- extra components für loganzeige, diagnoseausgeben simple user interface, complex user interface
+

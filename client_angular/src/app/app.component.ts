@@ -2,41 +2,19 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { ComplexUiComponent } from './components/complex-ui/complex-ui.component';
+import { DiagnosticPanelComponent } from './components/diagnostic-panel/diagnostic-panel.component';
+import { LogDisplayComponent } from './components/log-display/log-display.component';
+import { SimpleUiComponent } from './components/simple-ui/simple-ui.component';
 import { deriveKey, buildHeader, aadBytes, encryptUtf8, decryptUtf8, b64encode, b64decode } from './crypto';
+import { AppMode, DiagnosticLogEntry, SimpleLogEntry } from './models';
 
 const STORAGE_KEY = 'chaa_i_angular_client';
 const MAX_LOG = 400;
 const SIMPLE_KEY = 'ABCDEFG';
 const MAX_SIMPLE_LOG = 200;
 const MAX_DIAG_LOG = 200;
-
-type AppMode = 'advanced' | 'simple' | 'diagnostic';
-
-interface SimpleLogEntry {
-  direction: 'SEND' | 'RECV';
-  text: string;
-  to?: string;
-  from?: string;
-  ts: number;
-}
-
-interface DiagnosticLogEntry {
-  direction: 'SEND' | 'RECV';
-  ts: number;
-  plaintextLength: number;
-  ciphertextLength: number;
-  aadLength: number;
-  nonceLength: number;
-  header: Record<string, unknown>;
-  aadPreview: string;
-  notes?: string;
-}
 
 interface ConfigFormValues {
   url: string;
@@ -53,12 +31,11 @@ interface ConfigFormValues {
     CommonModule,
     ReactiveFormsModule,
     MatToolbarModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSlideToggleModule,
     MatButtonModule,
-    MatIconModule
+    SimpleUiComponent,
+    ComplexUiComponent,
+    LogDisplayComponent,
+    DiagnosticPanelComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']

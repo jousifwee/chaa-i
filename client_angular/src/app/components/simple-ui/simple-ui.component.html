@@ -1,0 +1,57 @@
+<div class="simple-shell">
+  <mat-card class="simple-card">
+    <mat-card-title>Verbindung</mat-card-title>
+    <mat-card-content class="card-content">
+      <div class="simple-status-row">
+        <span class="status" [class.ok]="statusClass === 'ok'">{{ status }}</span>
+        <span class="simple-meta">User: {{ userId }}</span>
+        <span class="simple-meta">Schluessel: {{ simpleKeyLabel }}</span>
+      </div>
+      <div class="button-row">
+        <button mat-raised-button color="primary" (click)="connectClick.emit()" [disabled]="connected">Verbinden</button>
+        <button mat-stroked-button color="primary" (click)="disconnectClick.emit()" [disabled]="!connected">Trennen</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="simple-card">
+    <mat-card-title>Nachricht</mat-card-title>
+    <mat-card-content [formGroup]="simpleForm" class="card-content">
+      <mat-form-field appearance="outline" class="stretch">
+        <mat-label>Empfaenger</mat-label>
+        <input matInput formControlName="to" placeholder="userId" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="stretch">
+        <mat-label>Nachricht</mat-label>
+        <textarea matInput rows="3" formControlName="text" placeholder="Nachricht..."></textarea>
+      </mat-form-field>
+      <div class="button-row">
+        <button mat-raised-button color="accent" (click)="sendClick.emit()" [disabled]="!connected">Senden</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="simple-card simple-log-card">
+    <mat-card-title>Nachrichten</mat-card-title>
+    <mat-card-content>
+      <div class="simple-log">
+        <div *ngIf="!logEntries.length" class="simple-log__empty">Noch keine Nachrichten.</div>
+        <div
+          *ngFor="let entry of logEntries"
+          class="simple-log__entry"
+          [class.simple-log__entry--send]="entry.direction === 'SEND'"
+        >
+          <div class="simple-log__meta">
+            <span class="simple-log__badge">{{ entry.direction }}</span>
+            <span class="simple-log__time">{{ entry.ts | date: 'mediumTime' }}</span>
+          </div>
+          <div class="simple-log__text">
+            <div *ngIf="entry.direction === 'SEND'">an {{ entry.to }}</div>
+            <div *ngIf="entry.direction === 'RECV'">von {{ entry.from || 'unbekannt' }}</div>
+            <div class="simple-log__message">{{ entry.text }}</div>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

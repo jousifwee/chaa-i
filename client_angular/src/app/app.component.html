@@ -29,195 +29,50 @@
   </div>
 </mat-toolbar>
 
-<ng-template #formsColumn>
-  <div class="column column--forms">
-    <mat-card>
-      <mat-card-title>Grundkonfiguration</mat-card-title>
-      <mat-card-content [formGroup]="configForm" class="card-content">
-        <div class="two-col">
-          <mat-form-field appearance="outline">
-            <mat-label>Serveradresse</mat-label>
-            <input matInput formControlName="url" placeholder="ws://host:port/ws" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Username</mat-label>
-            <input matInput formControlName="userId" />
-          </mat-form-field>
-        </div>
-        <div class="two-col">
-          <mat-form-field appearance="outline">
-            <mat-label>Standard-Rooms (Komma)</mat-label>
-            <input matInput formControlName="rooms" placeholder="z.B. general,dev" />
-          </mat-form-field>
-          <div class="toggle-row">
-            <mat-slide-toggle formControlName="useEncryption">Verschluesselung aktiv</mat-slide-toggle>
-          </div>
-        </div>
-        <ng-container *ngIf="configForm.get('useEncryption')!.value; else plaintextInfo">
-          <div class="two-col">
-            <mat-form-field appearance="outline">
-              <mat-label>Passphrase</mat-label>
-              <input matInput type="password" formControlName="pass" />
-            </mat-form-field>
-            <div class="pass-actions">
-              <button mat-raised-button color="primary" (click)="applyPassphrase()">Passphrase anwenden</button>
-              <span class="hint">Konfiguration wird lokal gespeichert.</span>
-            </div>
-          </div>
-        </ng-container>
-        <ng-template #plaintextInfo>
-          <div class="note">Klartextmodus aktiv - Nachrichten werden ohne AES-GCM versendet.</div>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card>
-      <mat-card-title>Verbindung</mat-card-title>
-      <mat-card-content class="card-content">
-        <div class="button-row">
-          <button mat-raised-button color="primary" (click)="connect()" [disabled]="connected()">Verbinden</button>
-          <button mat-stroked-button color="primary" (click)="disconnect()" [disabled]="!connected()">Trennen</button>
-          <span class="status" [class.ok]="statusClass() === 'ok'">{{ status() }}</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card>
-      <mat-card-title>Nachricht senden</mat-card-title>
-      <mat-card-content [formGroup]="messageForm" class="card-content">
-        <div class="two-col">
-          <mat-form-field appearance="outline">
-            <mat-label>An User (optional)</mat-label>
-            <input matInput formControlName="to" placeholder="userId" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>An Room (optional)</mat-label>
-            <input matInput formControlName="room" placeholder="room" />
-          </mat-form-field>
-        </div>
-        <mat-form-field appearance="outline" class="stretch">
-          <mat-label>Nachricht</mat-label>
-          <textarea matInput rows="4" formControlName="text" placeholder="Nachricht..."></textarea>
-        </mat-form-field>
-        <div class="button-row">
-          <button mat-raised-button color="accent" (click)="sendMessage()" [disabled]="!connected()">Senden</button>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-</ng-template>
-
 <ng-container [ngSwitch]="mode()">
-  <ng-container *ngSwitchCase="'simple'">
-    <div class="simple-shell">
-      <mat-card class="simple-card">
-        <mat-card-title>Verbindung</mat-card-title>
-        <mat-card-content class="card-content">
-          <div class="simple-status-row">
-            <span class="status" [class.ok]="statusClass() === 'ok'">{{ status() }}</span>
-            <span class="simple-meta">User: {{ configForm.get('userId')!.value }}</span>
-            <span class="simple-meta">Schluessel: {{ simpleKeyLabel }}</span>
-          </div>
-          <div class="button-row">
-            <button mat-raised-button color="primary" (click)="connect()" [disabled]="connected()">Verbinden</button>
-            <button mat-stroked-button color="primary" (click)="disconnect()" [disabled]="!connected()">Trennen</button>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="simple-card">
-        <mat-card-title>Nachricht</mat-card-title>
-        <mat-card-content [formGroup]="simpleForm" class="card-content">
-          <mat-form-field appearance="outline" class="stretch">
-            <mat-label>Empfaenger</mat-label>
-            <input matInput formControlName="to" placeholder="userId" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="stretch">
-            <mat-label>Nachricht</mat-label>
-            <textarea matInput rows="3" formControlName="text" placeholder="Nachricht..."></textarea>
-          </mat-form-field>
-          <div class="button-row">
-            <button mat-raised-button color="accent" (click)="sendMessage()" [disabled]="!connected()">Senden</button>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="simple-card simple-log-card">
-        <mat-card-title>Nachrichten</mat-card-title>
-        <mat-card-content>
-          <div class="simple-log">
-            <div *ngIf="!simpleLogEntries().length" class="simple-log__empty">Noch keine Nachrichten.</div>
-            <div
-              *ngFor="let entry of simpleLogEntries()"
-              class="simple-log__entry"
-              [class.simple-log__entry--send]="entry.direction === 'SEND'"
-            >
-              <div class="simple-log__meta">
-                <span class="simple-log__badge">{{ entry.direction }}</span>
-                <span class="simple-log__time">{{ entry.ts | date: 'mediumTime' }}</span>
-              </div>
-              <div class="simple-log__text">
-                <div *ngIf="entry.direction === 'SEND'">an {{ entry.to }}</div>
-                <div *ngIf="entry.direction === 'RECV'">von {{ entry.from || 'unbekannt' }}</div>
-                <div class="simple-log__message">{{ entry.text }}</div>
-              </div>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </ng-container>
+  <app-simple-ui
+    *ngSwitchCase="'simple'"
+    [status]="status()"
+    [statusClass]="statusClass()"
+    [connected]="connected()"
+    [userId]="configForm.get('userId')?.value ?? ''"
+    [simpleKeyLabel]="simpleKeyLabel"
+    [simpleForm]="simpleForm"
+    [logEntries]="simpleLogEntries()"
+    (connectClick)="connect()"
+    (disconnectClick)="disconnect()"
+    (sendClick)="sendMessage()"
+  ></app-simple-ui>
 
   <ng-container *ngSwitchCase="'diagnostic'">
-    <div class="shell">
-      <ng-container *ngTemplateOutlet="formsColumn"></ng-container>
-      <div class="column column--log">
-        <mat-card class="log-card">
-          <mat-card-title>Diagnose</mat-card-title>
-          <mat-card-content class="diag-content">
-            <div *ngIf="!diagnosticLogEntries().length" class="diag-empty">Noch keine Diagnosedaten vorhanden.</div>
-            <div *ngFor="let entry of diagnosticLogEntries()" class="diag-entry">
-              <div class="diag-header-row">
-                <span class="diag-badge" [class.diag-badge--send]="entry.direction === 'SEND'">
-                  {{ entry.direction }}
-                </span>
-                <span class="diag-time">{{ entry.ts | date: 'mediumTime' }}</span>
-                <span class="diag-note" *ngIf="entry.notes">{{ entry.notes }}</span>
-              </div>
-              <div class="diag-metrics">
-                <div><strong>Plaintext:</strong> {{ entry.plaintextLength }} Byte</div>
-                <div><strong>Ciphertext:</strong> {{ entry.ciphertextLength }} Byte</div>
-                <div><strong>AAD:</strong> {{ entry.aadLength }} Byte</div>
-                <div><strong>Nonce:</strong> {{ entry.nonceLength }} Byte</div>
-              </div>
-              <div class="diag-section">
-                <strong>Header</strong>
-                <pre>{{ entry.header | json }}</pre>
-              </div>
-              <div class="diag-section">
-                <strong>AAD (decoded)</strong>
-                <pre>{{ entry.aadPreview }}</pre>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
+    <app-complex-ui
+      [configForm]="configForm"
+      [messageForm]="messageForm"
+      [status]="status()"
+      [statusClass]="statusClass()"
+      [connected]="connected()"
+      (connectClick)="connect()"
+      (disconnectClick)="disconnect()"
+      (sendClick)="sendMessage()"
+      (applyPassphraseClick)="applyPassphrase()"
+    >
+      <app-diagnostic-panel [entries]="diagnosticLogEntries()"></app-diagnostic-panel>
+    </app-complex-ui>
   </ng-container>
 
   <ng-container *ngSwitchDefault>
-    <div class="shell">
-      <ng-container *ngTemplateOutlet="formsColumn"></ng-container>
-      <div class="column column--log">
-        <mat-card class="log-card">
-          <mat-card-title>Log</mat-card-title>
-          <mat-card-content class="log-content">
-            <div id="log">
-              <div *ngFor="let entry of logEntries()">{{ entry }}</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
+    <app-complex-ui
+      [configForm]="configForm"
+      [messageForm]="messageForm"
+      [status]="status()"
+      [statusClass]="statusClass()"
+      [connected]="connected()"
+      (connectClick)="connect()"
+      (disconnectClick)="disconnect()"
+      (sendClick)="sendMessage()"
+      (applyPassphraseClick)="applyPassphrase()"
+    >
+      <app-log-display [entries]="logEntries()"></app-log-display>
+    </app-complex-ui>
   </ng-container>
 </ng-container>

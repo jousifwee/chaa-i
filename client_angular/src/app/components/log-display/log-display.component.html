@@ -1,0 +1,9 @@
+<mat-card class="log-card">
+  <mat-card-title>{{ title }}</mat-card-title>
+  <mat-card-content class="log-content">
+    <div id="log" class="log-window">
+      <div *ngIf="!entries.length" class="log-empty">{{ emptyLabel }}</div>
+      <div *ngFor="let entry of entries">{{ entry }}</div>
+    </div>
+  </mat-card-content>
+</mat-card>

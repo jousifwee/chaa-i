@@ -1,0 +1,118 @@
+:host {
+  display: block;
+}
+
+.simple-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.simple-card {
+  max-width: 680px;
+  width: 100%;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status {
+  font-size: 0.95rem;
+  color: #c62828;
+}
+
+.status.ok {
+  color: #2e7d32;
+}
+
+.simple-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.simple-meta {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.simple-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.simple-log__empty {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.simple-log__entry {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.9rem;
+}
+
+.simple-log__entry--send {
+  border-left: 4px solid #00897b;
+}
+
+.simple-log__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 70px;
+  text-transform: lowercase;
+}
+
+.simple-log__badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #3949ab;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.simple-log__entry--send .simple-log__badge {
+  background: #00897b;
+}
+
+.simple-log__time {
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 0.75rem;
+}
+
+.simple-log__message {
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.stretch {
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .simple-shell {
+    padding: 16px 8px;
+  }
+}

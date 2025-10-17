@@ -1,0 +1,80 @@
+<div class="shell">
+  <div class="column column--forms">
+    <mat-card>
+      <mat-card-title>Grundkonfiguration</mat-card-title>
+      <mat-card-content [formGroup]="configForm" class="card-content">
+        <div class="two-col">
+          <mat-form-field appearance="outline">
+            <mat-label>Serveradresse</mat-label>
+            <input matInput formControlName="url" placeholder="ws://host:port/ws" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Username</mat-label>
+            <input matInput formControlName="userId" />
+          </mat-form-field>
+        </div>
+        <div class="two-col">
+          <mat-form-field appearance="outline">
+            <mat-label>Standard-Rooms (Komma)</mat-label>
+            <input matInput formControlName="rooms" placeholder="z.B. general,dev" />
+          </mat-form-field>
+          <div class="toggle-row">
+            <mat-slide-toggle formControlName="useEncryption">Verschluesselung aktiv</mat-slide-toggle>
+          </div>
+        </div>
+        <ng-container *ngIf="configForm.get('useEncryption')?.value; else plaintextInfo">
+          <div class="two-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Passphrase</mat-label>
+              <input matInput type="password" formControlName="pass" />
+            </mat-form-field>
+            <div class="pass-actions">
+              <button mat-raised-button color="primary" (click)="applyPassphraseClick.emit()">Passphrase anwenden</button>
+              <span class="hint">Konfiguration wird lokal gespeichert.</span>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #plaintextInfo>
+          <div class="note">Klartextmodus aktiv - Nachrichten werden ohne AES-GCM versendet.</div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-title>Verbindung</mat-card-title>
+      <mat-card-content class="card-content">
+        <div class="button-row">
+          <button mat-raised-button color="primary" (click)="connectClick.emit()" [disabled]="connected">Verbinden</button>
+          <button mat-stroked-button color="primary" (click)="disconnectClick.emit()" [disabled]="!connected">Trennen</button>
+          <span class="status" [class.ok]="statusClass === 'ok'">{{ status }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-title>Nachricht senden</mat-card-title>
+      <mat-card-content [formGroup]="messageForm" class="card-content">
+        <div class="two-col">
+          <mat-form-field appearance="outline">
+            <mat-label>An User (optional)</mat-label>
+            <input matInput formControlName="to" placeholder="userId" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>An Room (optional)</mat-label>
+            <input matInput formControlName="room" placeholder="room" />
+          </mat-form-field>
+        </div>
+        <mat-form-field appearance="outline" class="stretch">
+          <mat-label>Nachricht</mat-label>
+          <textarea matInput rows="4" formControlName="text" placeholder="Nachricht..."></textarea>
+        </mat-form-field>
+        <div class="button-row">
+          <button mat-raised-button color="accent" (click)="sendClick.emit()" [disabled]="!connected">Senden</button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  <div class="column column--log">
+    <ng-content></ng-content>
+  </div>
+</div>

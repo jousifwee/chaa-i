@@ -22,6 +22,12 @@ app.get("/ws/:roomId", (c) => {
 
 app.post("/rooms/:roomId/messages", async (c) => {
   const roomId = c.req.param("roomId");
+  const contentLength = c.req.header("content-length");
+
+  if (contentLength && Number(contentLength) > MAX_MESSAGE_BYTES) {
+    return c.json({ error: `content-length exceeds ${MAX_MESSAGE_BYTES} bytes limit` }, 413);
+  }
+
   const rawBody = await c.req.arrayBuffer();
 
   if (rawBody.byteLength === 0) {
@@ -65,6 +71,17 @@ export class ChannelDurableObject {
     if (request.method === "POST") {
       const action = request.headers.get("x-messagehub-action");
       if (action === "broadcast") {
+        const contentLength = request.headers.get("content-length");
+        if (contentLength && Number(contentLength) > MAX_MESSAGE_BYTES) {
+          return new Response(
+            JSON.stringify({ error: `content-length exceeds ${MAX_MESSAGE_BYTES} bytes limit` }),
+            {
+              status: 413,
+              headers: { "content-type": "application/json" },
+            },
+          );
+        }
+
         const payload = await request.arrayBuffer();
         if (payload.byteLength > MAX_MESSAGE_BYTES) {
           return new Response(

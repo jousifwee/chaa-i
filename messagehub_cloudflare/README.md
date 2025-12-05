@@ -25,7 +25,7 @@ Dev-Mode funktioniert analog mit `wrangler dev`.
 - **HTTP-API (Hono)**
   - `GET /` → Status JSON
   - `GET /health` → `200 ok`
-  - `POST /rooms/:roomId/messages` → sendet Payload an das zuständige Durable Object; Payload-Limit **64 KiB** (ca. 65 536 Byte) zum Schutz vor Cloudflare-Limits.
+  - `POST /rooms/:roomId/messages` → sendet Payload an das zuständige Durable Object; Payload-Limit **64 KiB** (ca. 65 536 Byte) zum Schutz vor Cloudflare-Limits. Requests mit `Content-Length` über dem Limit werden früh mit `413` abgewiesen, damit keine übergroßen Bodies in den Worker geladen werden.
 - **WebSocket**
   - `GET /ws/:roomId` → Upgrade auf WebSocket; Nachrichten werden im Durable Object fan-out-broadcastet.
   - Pro eingehender WS-Message gilt ebenfalls das **64-KiB-Limit**; größere Frames werden mit Close-Code `1009` abgelehnt.
